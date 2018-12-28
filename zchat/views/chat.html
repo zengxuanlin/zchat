@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>chat by zeng</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="http://i.gtimg.cn/vipstyle/frozenui/2.0.0/css/frozen.css">
+    <style>
+        #inputImage{
+            position: absolute;
+            width: 60px;
+            height: 30px;
+            right: 10px;
+            bottom: 7px;
+            opacity: 0;
+        }
+        .sendImg>img{
+            width: 100%;
+            height: auto;
+            max-width: 200px;
+        }
+    </style>
+</head>
+<body>
+    <div class="zchat-login" >
+        <section class="ui-panel ui-panel-center-multi ui-border-tb">
+            <h2><span>zChat聊天</span><span class="ui-panel-subtitle">welcome</span></h2>
+        </section>
+        <div class="ui-form ui-border-t">
+            <form>
+                <div class="ui-form-item ui-border-b">
+                    <label>
+                        昵称:
+                    </label>
+                    <input type="text" placeholder="请给自己取个昵称哟" id="SetNameIpt">
+                </div>
+                <!--<div class="ui-form-item ui-form-item-link ui-border-b">
+                    <label>
+                        列表标题
+                    </label>
+                </div>
+                <div class="ui-form-item ui-form-item-link ui-border-b">
+                    <label>
+                        标题
+                    </label>
+                </div>-->
+                <div class="ui-btn-wrap">
+                    <button class="ui-btn-lg ui-btn-primary" id="loginBtn">
+                        确定
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div stye>
+    <div class="zchat-container" style="height: 100vh;background: #fff;display: none">
+        <div class="ui-tab ">
+            <ul class="ui-tab-nav ui-border-b ">
+                <li class="current"><span>在线人数</span></li>
+                <li><span>公共聊天室</span></li>
+            </ul>
+            <ul class="ui-tab-content" style="width:200%;margin-bottom: 50px;">
+                <li>
+                    <ul class="ui-list ui-list-link ui-list-single ui-border-tb" id="OnlinePerson">
+                    </ul>
+                </li>
+                <li style="background: #fff;">
+                    <ul class="ui-list ui-list-nospace ui-border-tb" id="ZchatContent">
+
+                    </ul>
+                </li>
+            </ul>
+            <div class="ui-tooltips ui-tooltips-guide ui-tooltips-action">
+                <section class="ui-input-wrap ui-border-t">
+                    <div class="ui-input ui-border-radius">
+                        <input type="text" name="zchatIpt" placeholder="我也说一句...">
+                    </div>
+                    <button class="ui-btn ui-btn-primary" id="SendMsg">发送</button>
+                    <button class="ui-btn ui-btn-primary" id="SendImg">
+                        图片
+                    </button>
+                    <input type="file" id="inputImage" name="file" accept="image/gif,image/jpg,image/jpeg,image/bmp,image/png" >
+
+                </section>
+            </div>
+        </div>
+    </div>
+</body>
+<script src="js/zepto.min.js"></script>
+<script src="js/index.js"></script>
+<script src="https://cdn.bootcss.com/socket.io/2.2.0/socket.io.js"></script>
+<script>
+    const socket = io.connect('http://192.168.3.20:3000');
+    let username = null;
+    let allUsers = [];
+
+    (function() {
+        $('.ui-tooltips').hide();
+        $('.ui-dialog ').hide();
+        $('.ui-tab-nav').eq(0).find('li').on('click',function() {
+
+            //记录原始点的位置:
+            //   if(!record){
+            //       origin_l = $('.ui-tab-nav li.current i').offset().left;
+            //       record++;
+            //   }
+            $(this).parent().find('li').removeClass('current');
+            $(this).addClass('current');
+            if( $('.ui-tab-nav').find('li').eq(1).attr('class') === 'current'){
+                    $('.ui-tooltips').fadeIn();
+                setTimeout(function () {
+                    ($("#ZchatContent").children("li:last-child")[0]).scrollIntoView();
+                },100);
+            }else{
+                $('.ui-tooltips').fadeOut();
+            }
+            //   var l = $(this).find('span').offset().left;
+            //   var w = $(this).find('span').offset().width;
+            //   $('.ui-tab-nav li.current i').css({
+            //       'transform':'translate3d('+(l-origin_l)+'px,0,0)',
+            //       'width':w,
+            //       'transition':'transform 0.5s linear'
+            //   });
+            $('.ui-tab-content').eq(0).css({
+                'transform':'translate3d(-'+($(this).index()*$('.ui-tab-content li').offset().width)+'px,0,0)',
+                'transition':'transform 0.5s linear'
+            })
+        });
+
+    })(window, undefined)
+
+    $(window).on('touchstart','.ui-dialog-close',function(){
+       $('.ui-dialog-operate').fadeOut();
+
+    });
+
+    let chat_login_success = (data)=>{
+        $('.zchat-login').fadeOut();
+        $('.zchat-container').fadeIn();
+        $('#loginBtn').off('click');
+        $('body').append(`<div class="ui-dialog ui-dialog-operate show">
+  <div class="ui-dialog-cnt">
+  	<div class="ui-dialog-hd">
+  		<div class="ui-img">
+  			<span style="background-image:url(img/${imgUrlRandom(data.imgSrc)});background-size:150px;background-position: center"></span>
+  		</div>
+  	</div>
+  	<div class="ui-dialog-bd">
+  		<h3>欢迎您 ${username}</h3>
+  		<p>你对你的头像还满意吗？哈哈</p>
+  	</div>
+  	<div class="ui-dialog-ft">
+        <i class="ui-dialog-close" data-role="button"></i>
+  </div>
+</div>`);
+        for(let user of data.userGroup){
+                if(username !== user.username){
+                    $('#OnlinePerson').append(`<li>
+                            <div class="ui-avatar-s">
+                                <span style="background-image:url(img/${imgUrlRandom(user.imgSrc)});background-size:34px;background-position: center"></span>
+                            </div>
+                            <div class="ui-list-info ui-border-t">
+                                <h4 class="ui-nowrap">${user.username}</h4>
+                            </div>
+                        </li>`)
+                }
+        }
+    };
+
+    let imgUrlRandom =(number)=>{
+        if(typeof number === 'undefined'){
+            number = (Math.random()*8)||0;
+        }
+        switch (parseInt(number)) {
+            case 0:
+                return 'p1.jpeg';
+            case 1:
+                return 'p2.jpeg';
+            case 2:
+                return 'p3.jpeg';
+            case 3:
+                return 'p4.jpeg';
+            case 4:
+                return 'p5.jpeg';
+            case 5:
+                return 'p6.jpeg';
+            case 6:
+                return 'p7.jpeg';
+            case 7:
+                return 'p8.jpeg';
+            case 8:
+                return 'p9.jpeg';
+            case 9:
+                return 'p10.jpeg';
+        }
+    };
+    let setUserName = ()=>{
+        const $name = $('#SetNameIpt');
+        username = $name[0].value.trim();
+        if(username){
+            socket.emit('login',{username});
+        }
+    };
+    let addDelUsersList = (flag,data)=>{
+      if(flag === 1){
+          $('#OnlinePerson').append(`<li data-name=${data.userId}>
+                            <div class="ui-avatar-s">
+                                <span style="background-image:url(img/${imgUrlRandom(data.imgSrc)});background-size:34px;background-position: center"></span>
+                            </div>
+                            <div class="ui-list-info ui-border-t">
+                                <h4 class="ui-nowrap">${data.username}</h4>
+                            </div>
+                        </li>`)
+      }
+      if(flag === -1){
+        allUsers.forEach(function(item,index){
+            if(username === data.username){
+                allUsers.split(index,1);
+            }
+        });
+          $('#OnlinePerson').find('li[data-name='+data.userId+']').remove();
+      }
+    };
+    let showTocast = (flag,data)=>{
+        if(flag === 1){
+            $('body').append(`
+            <div class="ui-tooltips ui-tooltips-guide zchat-tip" style="position: absolute;top: 0;">
+                 <div class="ui-tooltips-cnt ui-border-b">
+        <i></i>您的好友${data.username}上线了哟~!
+    </div>
+            </div>`);
+            setTimeout(()=>{
+                $('.zchat-tip').fadeOut().remove();
+            },2000)
+        }
+        else if(flag === -1){
+            $('body').append(`<div class="ui-tooltips ui-tooltips-warn zchat-tip" style="position: absolute;top: 0;">
+    <div class="ui-tooltips-cnt ui-border-b">
+        <i></i>您的好友${data.username}下线了!
+    </div>
+</div>`);
+            setTimeout(()=>{
+                $('.zchat-tip').fadeOut().remove();
+            },2000)
+        }
+    };
+    let showMessage = data=>{
+      if(username === data.username){
+          $('#ZchatContent').append(`
+            <li class="ui-border-t">
+                            <div class="ui-list-info" style="text-align: right">
+                                <p class="ui-txt-white"  style="color: #00a5e0">${data.message}</p>
+                            </div>
+                            <div class="ui-list-img-square">
+                                <h5 class="ui-nowrap" style="text-align: center;margin-top: 10px;">${data.username}</h5>
+                                <div class="ui-avatar" style="margin: 0 auto;">
+                                    <span style="background-image:url(img/${imgUrlRandom(data.imgSrc)});background-size:50px;background-position: center;"></span>
+                                </div>
+                            </div>
+                        </li>
+          `)
+      }else{
+          $('#ZchatContent').append(`
+            <li class="ui-border-t">
+                            <div class="ui-list-img-square">
+                                <h5 class="ui-nowrap" style="text-align: center;margin-top: 10px;">${data.username}</h5>
+                                <div class="ui-avatar" style="margin: 0 auto;">
+                                     <span style="background-image:url(img/${imgUrlRandom(data.imgSrc)});background-size:50px;background-position: center;"></span>
+                                </div>
+                            </div>
+                            <div class="ui-list-info">
+                                <p class="ui-txt-warning">${data.message}</p>
+                            </div>
+                        </li>
+          `)
+      }
+    };
+    let showImg = (data,callback)=>{
+        if(data.username === username){
+            $('#ZchatContent').append(`
+                                    <li class="ui-border-t">
+                            <div class="ui-list-info sendImg" style="text-align: center;" >
+                                <img src=${data.imgUrl} >
+                            </div>
+                            <div class="ui-list-img-square">
+                                <h5 class="ui-nowrap" style="text-align: center;margin-top: 10px;">${data.username}</h5>
+                                <div class="ui-avatar" style="margin: 0 auto;">
+                                    <span style="background-image:url(img/${imgUrlRandom(data.imgSrc)});background-size:50px;background-position: center;"></span>
+                                </div>
+                            </div>
+                        </li>
+        `);
+            typeof callback === 'function' && callback();
+        }else{
+            $('#ZchatContent').append(`
+                                    <li class="ui-border-t">
+                            <div class="ui-list-img-square">
+                                <h5 class="ui-nowrap" style="text-align: center;margin-top: 10px;">${data.username}</h5>
+                                <div class="ui-avatar" style="margin: 0 auto;">
+                                    <span style="background-image:url(img/${imgUrlRandom(data.imgSrc)});background-size:50px;background-position: center;"></span>
+                                </div>
+                            </div>
+                                                        <div class="ui-list-info sendImg" style="text-align: center;" >
+                                <img src=${data.imgUrl} >
+                            </div>
+                        </li>
+        `);
+            typeof callback === 'function' && callback();
+        }
+    };
+    $('#loginBtn').on('click',()=>{
+        setUserName();
+        return false;
+    });
+
+
+    $('#SendMsg').on('click',function(){
+        sendMsg();
+        return false;
+    });
+
+    $('#inputImage').on('change',function(){
+        let file = this.files[0];
+        let reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = function(){
+            socket.emit('sendImg',{username,imgUrl:this.result})
+            setTimeout(function () {
+                ($("#ZchatContent").children("li:last-child")[0]).scrollIntoView();
+            },100);
+        };
+    });
+    let sendMsg = function(){
+        let _msg = $('input[name="zchatIpt"]').val().trim();
+        if(_msg){
+            socket.emit('message',{message:_msg,username});
+            $('input[name="zchatIpt"]').val('');
+                setTimeout(function () {
+                    ($("#ZchatContent").children("li:last-child")[0]).scrollIntoView();
+                },100);
+        }
+    };
+
+    socket.on('LoginSuccess',function(data){
+        if(username === data.username){
+            allUsers.push({username,imgSrc : data.imgSrc});
+            chat_login_success(data);
+        }else{
+            showTocast(1,data);
+            allUsers.push({username:data.username,imgSrc : data.imgSrc});
+            addDelUsersList(1,data);
+        }
+    });
+    socket.on('receiveMsg',function(data){
+        showMessage(data);
+        setTimeout(function () {
+            ($("#ZchatContent").children("li:last-child")[0]).scrollIntoView();
+        },100);
+    });
+    socket.on('userLeave',function(data){
+        console.log(data);
+        addDelUsersList(-1,data);
+        showTocast(-1,data);
+    });
+    socket.on('receiveImg',function(data){
+        showImg(data,()=>{
+            setTimeout(function () {
+                ($("#ZchatContent").children("li:last-child")[0]).scrollIntoView();
+            },100);
+        });
+    });
+</script>
+</html>
