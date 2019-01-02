@@ -8,7 +8,7 @@ const users = [];
 const _sockets = [];
 let online_person_no = 0;
 server.listen(3000,()=>{
-   console.log('zchat running at http://192.168.3.20:3000');
+   console.log('zchat running at http://localhost:3000');
 });
 app.use(express.static(path.join(__dirname,'./public')));
 app.set('views',path.join(__dirname,'./views'));
@@ -19,7 +19,9 @@ app.get('/',(req,res)=>{
 });
 io.on('connection',function(socket){
     online_person_no++;
+
     console.log(online_person_no + '位用户连接了');
+
     socket.on('login',function(data){
         socket.username = data.username;
         users.forEach(function(user){
@@ -34,7 +36,7 @@ io.on('connection',function(socket){
                 username:data.username,
                 message : [],
                 dataUrl: [],
-                loginTime : Date.now(),
+                loginTime : new Date().toLocaleString(),
                 imgSrc,
                 id:socket.id
             });

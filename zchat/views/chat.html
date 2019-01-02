@@ -19,6 +19,9 @@
             height: auto;
             max-width: 200px;
         }
+        .ui-tab-nav{
+            height: 60px;
+        }
     </style>
 </head>
 <body>
@@ -56,16 +59,19 @@
         <div class="ui-tab ">
             <ul class="ui-tab-nav ui-border-b ">
                 <li class="current"><span>在线人数</span></li>
-                <li><span>公共聊天室</span></li>
+                <li><span>
+                    <div class="ui-badge-wrap" style="width: 100px;line-height: 50px;">公共聊天室<div class="ui-badge-corner">new</div></div>
+                </span></li>
             </ul>
             <ul class="ui-tab-content" style="width:200%;margin-bottom: 50px;">
                 <li>
                     <ul class="ui-list ui-list-link ui-list-single ui-border-tb" id="OnlinePerson">
+                        <!--用户列表DOM-->
                     </ul>
                 </li>
                 <li style="background: #fff;">
                     <ul class="ui-list ui-list-nospace ui-border-tb" id="ZchatContent">
-
+                        <!--消息DOM插入-->
                     </ul>
                 </li>
             </ul>
@@ -86,56 +92,49 @@
     </div>
 </body>
 <script src="js/zepto.min.js"></script>
-<script src="js/index.js"></script>
 <script src="https://cdn.bootcss.com/socket.io/2.2.0/socket.io.js"></script>
 <script>
-    const socket = io.connect('http://192.168.3.20:3000');
+    const _url = 'http://localhost:3000';
+    const socket = io.connect(_url);
     let username = null;
     let allUsers = [];
 
     (function() {
         $('.ui-tooltips').hide();
         $('.ui-dialog ').hide();
+        $('.ui-badge-corner').hide();
         $('.ui-tab-nav').eq(0).find('li').on('click',function() {
-
-            //记录原始点的位置:
-            //   if(!record){
-            //       origin_l = $('.ui-tab-nav li.current i').offset().left;
-            //       record++;
-            //   }
             $(this).parent().find('li').removeClass('current');
             $(this).addClass('current');
             if( $('.ui-tab-nav').find('li').eq(1).attr('class') === 'current'){
+                    $('.ui-badge-corner').hide();
                     $('.ui-tooltips').fadeIn();
-                setTimeout(function () {
-                    ($("#ZchatContent").children("li:last-child")[0]).scrollIntoView();
-                },100);
+                    if($("#ZchatContent").children().length > 0){
+                        setTimeout(function () {
+                            ($("#ZchatContent").children("li:last-child")[0]).scrollIntoView();
+                        },100);
+                    }
             }else{
                 $('.ui-tooltips').fadeOut();
             }
-            //   var l = $(this).find('span').offset().left;
-            //   var w = $(this).find('span').offset().width;
-            //   $('.ui-tab-nav li.current i').css({
-            //       'transform':'translate3d('+(l-origin_l)+'px,0,0)',
-            //       'width':w,
-            //       'transition':'transform 0.5s linear'
-            //   });
             $('.ui-tab-content').eq(0).css({
                 'transform':'translate3d(-'+($(this).index()*$('.ui-tab-content li').offset().width)+'px,0,0)',
                 'transition':'transform 0.5s linear'
             })
         });
 
-    })(window, undefined)
+    })(window, undefined);
 
     $(window).on('touchstart','.ui-dialog-close',function(){
        $('.ui-dialog-operate').fadeOut();
-
     });
 
+
+    //登陆成功
     let chat_login_success = (data)=>{
         $('.zchat-login').fadeOut();
         $('.zchat-container').fadeIn();
+        $('#OnlinePerson').html('');
         $('#loginBtn').off('click');
         $('body').append(`<div class="ui-dialog ui-dialog-operate show">
   <div class="ui-dialog-cnt">
@@ -153,22 +152,28 @@
   </div>
 </div>`);
         for(let user of data.userGroup){
-                if(username !== user.username){
                     $('#OnlinePerson').append(`<li>
                             <div class="ui-avatar-s">
                                 <span style="background-image:url(img/${imgUrlRandom(user.imgSrc)});background-size:34px;background-position: center"></span>
                             </div>
                             <div class="ui-list-info ui-border-t">
-                                <h4 class="ui-nowrap">${user.username}</h4>
+                                <h4 class="ui-nowrap" style="color: ${username !== user.username?'':'#12B7F5'};">${user.username}</h4>
+                                ${(function () {
+                                    if(username === user.username){
+                                        return '<div class="ui-reddot ui-reddot-static"></div>'
+                                    }else{
+                                        return '';
+                                    }
+                                })()}
                             </div>
                         </li>`)
-                }
+
         }
     };
 
     let imgUrlRandom =(number)=>{
         if(typeof number === 'undefined'){
-            number = (Math.random()*8)||0;
+            number = (Math.random()*10)||0;
         }
         switch (parseInt(number)) {
             case 0:
@@ -193,6 +198,7 @@
                 return 'p10.jpeg';
         }
     };
+    //设置用户名后发送登录事件
     let setUserName = ()=>{
         const $name = $('#SetNameIpt');
         username = $name[0].value.trim();
@@ -200,8 +206,15 @@
             socket.emit('login',{username});
         }
     };
+    //添加或者删除用户列表
     let addDelUsersList = (flag,data)=>{
-      if(flag === 1){
+
+        /**
+         * flag  1:添加DOM   -1：删除DOM
+         *
+         */
+
+        if(flag === 1){
           $('#OnlinePerson').append(`<li data-name=${data.userId}>
                             <div class="ui-avatar-s">
                                 <span style="background-image:url(img/${imgUrlRandom(data.imgSrc)});background-size:34px;background-position: center"></span>
@@ -220,7 +233,11 @@
           $('#OnlinePerson').find('li[data-name='+data.userId+']').remove();
       }
     };
+    //上线、下线消息
     let showTocast = (flag,data)=>{
+        /**
+         * flag为-1是删除  1是添加
+         */
         if(flag === 1){
             $('body').append(`
             <div class="ui-tooltips ui-tooltips-guide zchat-tip" style="position: absolute;top: 0;">
@@ -243,6 +260,7 @@
             },2000)
         }
     };
+    //显示聊天消息
     let showMessage = data=>{
       if(username === data.username){
           $('#ZchatContent').append(`
@@ -274,6 +292,18 @@
           `)
       }
     };
+    //发送消息
+    let sendMsg = function(){
+        let _msg = $('input[name="zchatIpt"]').val().trim();
+        if(_msg){
+            socket.emit('message',{message:_msg,username});
+            $('input[name="zchatIpt"]').val('');
+            setTimeout(function () {
+                ($("#ZchatContent").children("li:last-child")[0]).scrollIntoView();
+            },100);
+        }
+    };
+    //显示图片
     let showImg = (data,callback)=>{
         if(data.username === username){
             $('#ZchatContent').append(`
@@ -329,16 +359,8 @@
             },100);
         };
     });
-    let sendMsg = function(){
-        let _msg = $('input[name="zchatIpt"]').val().trim();
-        if(_msg){
-            socket.emit('message',{message:_msg,username});
-            $('input[name="zchatIpt"]').val('');
-                setTimeout(function () {
-                    ($("#ZchatContent").children("li:last-child")[0]).scrollIntoView();
-                },100);
-        }
-    };
+
+    /** socket服务端相关事件 **/
 
     socket.on('LoginSuccess',function(data){
         if(username === data.username){
@@ -352,14 +374,20 @@
     });
     socket.on('receiveMsg',function(data){
         showMessage(data);
-        setTimeout(function () {
-            ($("#ZchatContent").children("li:last-child")[0]).scrollIntoView();
-        },100);
+        //如果在聊天页  消息推送时自动滚动到底部
+        if( $('.ui-tab-nav').find('li').eq(1).attr('class') === 'current'){
+            setTimeout(function () {
+                ($("#ZchatContent").children("li:last-child")[0]).scrollIntoView();
+            },100);
+        }else{
+            $('.ui-badge-corner').show();
+        }
     });
     socket.on('userLeave',function(data){
-        console.log(data);
-        addDelUsersList(-1,data);
-        showTocast(-1,data);
+        if(data.username !== undefined){
+            addDelUsersList(-1,data);
+            showTocast(-1,data);
+        }
     });
     socket.on('receiveImg',function(data){
         showImg(data,()=>{
@@ -367,6 +395,11 @@
                 ($("#ZchatContent").children("li:last-child")[0]).scrollIntoView();
             },100);
         });
+    });
+    socket.on('usernameErr',function(){
+
+        window.alert('用户名已存在,请重新输入');
+        $('#SetNameIpt').val('');
     });
 </script>
 </html>
